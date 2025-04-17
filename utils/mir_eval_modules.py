@@ -28,21 +28,36 @@ def idx2voca_chord():
 
 def audio_file_to_features(audio_file, config):
     original_wav, sr = librosa.load(audio_file, sr=config.mp3['song_hz'], mono=True)
-    currunt_sec_hz = 0
-    while len(original_wav) > currunt_sec_hz + config.mp3['song_hz'] * config.mp3['inst_len']:
-        start_idx = int(currunt_sec_hz)
-        end_idx = int(currunt_sec_hz + config.mp3['song_hz'] * config.mp3['inst_len'])
-        tmp = librosa.cqt(original_wav[start_idx:end_idx], sr=sr, n_bins=config.feature['n_bins'], bins_per_octave=config.feature['bins_per_octave'], hop_length=config.feature['hop_length'])
-        if start_idx == 0:
-            feature = tmp
-        else:
-            feature = np.concatenate((feature, tmp), axis=1)
-        currunt_sec_hz = end_idx
-    tmp = librosa.cqt(original_wav[currunt_sec_hz:], sr=sr, n_bins=config.feature['n_bins'], bins_per_octave=config.feature['bins_per_octave'], hop_length=config.feature['hop_length'])
-    feature = np.concatenate((feature, tmp), axis=1)
+    
+    current_sec_hz = 0
+    features = []  # 用列表存储 CQT 结果
+    
+    while len(original_wav) > current_sec_hz + config.mp3['song_hz'] * config.mp3['inst_len']:
+        start_idx = int(current_sec_hz)
+        end_idx = int(current_sec_hz + config.mp3['song_hz'] * config.mp3['inst_len'])
+        
+        tmp = librosa.cqt(original_wav[start_idx:end_idx], sr=sr, 
+                          n_bins=config.feature['n_bins'], 
+                          bins_per_octave=config.feature['bins_per_octave'], 
+                          hop_length=config.feature['hop_length'])
+        
+        features.append(tmp)
+        current_sec_hz = end_idx
+    
+    # 处理最后一段
+    tmp = librosa.cqt(original_wav[current_sec_hz:], sr=sr, 
+                      n_bins=config.feature['n_bins'], 
+                      bins_per_octave=config.feature['bins_per_octave'], 
+                      hop_length=config.feature['hop_length'])
+    features.append(tmp)
+    
+    # 拼接特征矩阵
+    feature = np.concatenate(features, axis=1)
     feature = np.log(np.abs(feature) + 1e-6)
+    
     feature_per_second = config.mp3['inst_len'] / config.model['timestep']
-    song_length_second = len(original_wav)/config.mp3['song_hz']
+    song_length_second = len(original_wav) / config.mp3['song_hz']
+    
     return feature, feature_per_second, song_length_second
 
 # Audio files with format of wav and mp3

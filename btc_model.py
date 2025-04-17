@@ -158,8 +158,10 @@ class BTC_model(nn.Module):
         self.self_attn_layers = bi_directional_self_attention_layers(*params)
         self.output_layer = SoftmaxOutputLayer(hidden_size=config['hidden_size'], output_size=config['num_chords'], probs_out=config['probs_out'])
 
-    def forward(self, x, labels):
-        labels = labels.view(-1, self.timestep)
+    def forward(self, x, labels=None):  # labels 设为可选
+        if labels is not None:
+            labels = labels.view(-1, self.timestep)
+
         # Output of Bi-directional Self-attention Layers
         self_attn_output, weights_list = self.self_attn_layers(x)
 
@@ -169,13 +171,16 @@ class BTC_model(nn.Module):
             return logits
 
         # Output layer and Soft-max
-        prediction,second = self.output_layer(self_attn_output)
+        prediction, second = self.output_layer(self_attn_output)
         prediction = prediction.view(-1)
         second = second.view(-1)
 
-        # Loss Calculation
-        loss = self.output_layer.loss(self_attn_output, labels)
-        return prediction, loss, weights_list, second
+        # Loss Calculation (只有训练时才计算)
+        if labels is not None:
+            loss = self.output_layer.loss(self_attn_output, labels)
+            return prediction, loss, weights_list, second
+        else:
+            return prediction, weights_list, second  # 只返回预测值
 
 if __name__ == "__main__":
     config = HParams.load("run_config.yaml")
